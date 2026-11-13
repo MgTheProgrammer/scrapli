@@ -2,6 +2,8 @@ from copy import copy
 
 import pytest
 
+from scrapli import AuthOptions, Netconf, TransportBinOptions, TransportSsh2Options
+from scrapli.exceptions import AuthenticationException
 from scrapli.netconf import DatastoreType, FilterType
 
 ACTION_ARGNAMES = (
@@ -941,3 +943,70 @@ async def test_validate_async(netconf, netconf_assert_result):
         actual = await n.validate_async()
 
         netconf_assert_result(actual=actual)
+
+
+OPEN_AUTHENTICATION_FAILURE_ARGNAMES = (
+    "transport",
+    "auth_failure",
+)
+OPEN_AUTHENTICATION_FAILURE_ARGVALUES = (
+    (
+        "bin",
+        "bad-password",
+    ),
+    (
+        "ssh2",
+        "bad-password",
+    ),
+    (
+        "bin",
+        "untrusted-certificate",
+    ),
+    (
+        "ssh2",
+        "untrusted-certificate",
+    ),
+)
+OPEN_AUTHENTICATION_FAILURE_IDS = (
+    "nokia_srl-bin-bad-password",
+    "nokia_srl-ssh2-bad-password",
+    "nokia_srl-bin-untrusted-certificate",
+    "nokia_srl-ssh2-untrusted-certificate",
+)
+
+
+@pytest.mark.parametrize(
+    argnames=OPEN_AUTHENTICATION_FAILURE_ARGNAMES,
+    argvalues=OPEN_AUTHENTICATION_FAILURE_ARGVALUES,
+    ids=OPEN_AUTHENTICATION_FAILURE_IDS,
+)
+def test_open_authentication_failure(is_darwin, transport, auth_failure):
+    if auth_failure == "bad-password":
+        auth_options = AuthOptions(
+            username="admin",
+            password="not-the-password",
+        )
+    else:
+        # the certificate is signed by a ca the device doesnt trust, and the "admin" user has no
+        # authorized key, so key/certificate auth is rejected
+        auth_options = AuthOptions(
+            username="admin",
+            private_key_path="tests/functional/fixtures/libscrapli_test_ssh_key",
+            certificate_path="tests/functional/fixtures/libscrapli_test_ssh_key-cert.pub",
+        )
+
+    if transport == "bin":
+        transport_options = TransportBinOptions()
+    else:
+        transport_options = TransportSsh2Options()
+
+    netconf = Netconf(
+        host="localhost" if is_darwin else "172.20.20.16",
+        port=21830 if is_darwin else 830,
+        auth_options=auth_options,
+        transport_options=transport_options,
+    )
+
+    with pytest.raises(AuthenticationException):
+        with netconf:
+            pass

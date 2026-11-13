@@ -9,6 +9,7 @@ from scrapli import (
     TransportBinOptions,
     TransportSsh2Options,
 )
+from scrapli.exceptions import AuthenticationException
 
 GET_PROMPT_ARGNAMES = (
     "platform",
@@ -1022,3 +1023,70 @@ def test_open_with_key(eos_available, is_darwin, auth_options, transport_options
 
     with cli as c:
         c.get_prompt()
+
+
+# the certificate is signed by a ca the device doesnt trust, and the "admin" user has no authorized
+# key, so key/certificate auth is rejected
+UNTRUSTED_CERTIFICATE_AUTH_OPTIONS = AuthOptions(
+    username="admin",
+    private_key_path="tests/functional/fixtures/libscrapli_test_ssh_key",
+    certificate_path="tests/functional/fixtures/libscrapli_test_ssh_key-cert.pub",
+)
+BAD_PASSWORD_AUTH_OPTIONS = AuthOptions(
+    username="admin",
+    password="not-the-password",
+)
+
+OPEN_AUTHENTICATION_FAILURE_ARGNAMES = (
+    "transport",
+    "auth_options",
+)
+OPEN_AUTHENTICATION_FAILURE_ARGVALUES = (
+    (
+        "bin",
+        BAD_PASSWORD_AUTH_OPTIONS,
+    ),
+    (
+        "ssh2",
+        BAD_PASSWORD_AUTH_OPTIONS,
+    ),
+    (
+        "bin",
+        UNTRUSTED_CERTIFICATE_AUTH_OPTIONS,
+    ),
+    (
+        "ssh2",
+        UNTRUSTED_CERTIFICATE_AUTH_OPTIONS,
+    ),
+)
+OPEN_AUTHENTICATION_FAILURE_IDS = (
+    "nokia_srl-bin-bad-password",
+    "nokia_srl-ssh2-bad-password",
+    "nokia_srl-bin-untrusted-certificate",
+    "nokia_srl-ssh2-untrusted-certificate",
+)
+
+
+@pytest.mark.parametrize(
+    argnames=OPEN_AUTHENTICATION_FAILURE_ARGNAMES,
+    argvalues=OPEN_AUTHENTICATION_FAILURE_ARGVALUES,
+    ids=OPEN_AUTHENTICATION_FAILURE_IDS,
+)
+def test_open_authentication_failure(is_darwin, transport, auth_options):
+    if transport == "bin":
+        transport_options = TransportBinOptions()
+    else:
+        transport_options = TransportSsh2Options()
+
+    cli = Cli(
+        definition_file_or_name="nokia_srlinux",
+        host="localhost" if is_darwin else "172.20.20.16",
+        port=21022 if is_darwin else 22,
+        auth_options=auth_options,
+        session_options=SessionOptions(),
+        transport_options=transport_options,
+    )
+
+    with pytest.raises(AuthenticationException):
+        with cli:
+            pass

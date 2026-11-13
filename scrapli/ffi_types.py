@@ -30,6 +30,7 @@ from logging import CRITICAL, DEBUG, FATAL, INFO, NOTSET, WARN, Logger
 from typing import TYPE_CHECKING, Any, ClassVar, TypeAlias
 
 from scrapli.exceptions import (
+    AuthenticationException,
     CancelledException,
     DriverException,
     EOFException,
@@ -160,6 +161,7 @@ class LibScrapliFFIResult(IntEnum):
     TRANSPORT = 8
     OPERATION = 9
     INVALID_ARGUMENT = 10
+    AUTHENTICATION = 11
 
     def to_exception(
         self,
@@ -217,6 +219,7 @@ _RESULT_EXCEPTIONS: dict[LibScrapliFFIResult, type[ScrapliException]] = {
     LibScrapliFFIResult.TRANSPORT: TransportException,
     LibScrapliFFIResult.OPERATION: OperationException,
     LibScrapliFFIResult.INVALID_ARGUMENT: InvalidArgumentException,
+    LibScrapliFFIResult.AUTHENTICATION: AuthenticationException,
 }
 
 

@@ -14,6 +14,7 @@ from scrapli import (
     TransportTestOptions,
 )
 from scrapli.exceptions import (
+    AuthenticationException,
     CancelledException,
     NotOpenedException,
     SessionException,
@@ -24,7 +25,8 @@ from scrapli.session import Options as SessionOptions
 
 # a recorded session holding an open and a get_prompt -- once both have been replayed the test
 # transport has nothing more to read, so the connection is open but the "device" is unresponsive
-SILENT_AFTER_GET_PROMPT_FIXTURE = Path(__file__).parent / "fixtures" / "cli" / "get-prompt"
+CLI_FIXTURES = Path(__file__).parent / "fixtures" / "cli"
+SILENT_AFTER_GET_PROMPT_FIXTURE = CLI_FIXTURES / "get-prompt"
 
 DRIVERS = (Cli, Netconf)
 DRIVER_IDS = ("cli", "netconf")
@@ -277,3 +279,60 @@ async def test_send_input_after_close_async():
 
     with pytest.raises(NotOpenedException):
         await c.send_input_async(input_="show version")
+
+
+# recorded (srl, bin transport) sessions in which the device rejects our credentials
+AUTHENTICATION_FAILURE_ARGNAMES = ("fixture", "auth_options")
+AUTHENTICATION_FAILURE_ARGVALUES = (
+    # wrong password -- the device keeps prompting for the password
+    (
+        "open-authentication-failure-password-reprompted",
+        AuthOptions(username="admin", password="not-the-password"),
+    ),
+    # key rejected, ssh falls back to a password prompt but there is no password to send
+    (
+        "open-authentication-failure-key-rejected-password-prompted",
+        AuthOptions(username="admin"),
+    ),
+    # key rejected, no other auth methods to fall back to
+    (
+        "open-authentication-failure-key-rejected-permission-denied",
+        AuthOptions(username="admin"),
+    ),
+)
+AUTHENTICATION_FAILURE_IDS = (
+    "bad-password",
+    "key-rejected-password-prompted",
+    "key-rejected-permission-denied",
+)
+
+
+def _authentication_failure_cli(fixture: str, auth_options: AuthOptions) -> Cli:
+    return Cli(
+        definition_file_or_name="nokia_srlinux",
+        host="localhost",
+        auth_options=auth_options,
+        session_options=SessionOptions(read_size=1),
+        transport_options=TransportTestOptions(f=str(CLI_FIXTURES / fixture)),
+    )
+
+
+@pytest.mark.parametrize(
+    argnames=AUTHENTICATION_FAILURE_ARGNAMES,
+    argvalues=AUTHENTICATION_FAILURE_ARGVALUES,
+    ids=AUTHENTICATION_FAILURE_IDS,
+)
+def test_open_authentication_failure(fixture, auth_options):
+    with pytest.raises(AuthenticationException):
+        _authentication_failure_cli(fixture, auth_options).open()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    argnames=AUTHENTICATION_FAILURE_ARGNAMES,
+    argvalues=AUTHENTICATION_FAILURE_ARGVALUES,
+    ids=AUTHENTICATION_FAILURE_IDS,
+)
+async def test_open_authentication_failure_async(fixture, auth_options):
+    with pytest.raises(AuthenticationException):
+        await _authentication_failure_cli(fixture, auth_options).open_async()

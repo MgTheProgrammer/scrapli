@@ -67,3 +67,7 @@ class TransportException(ScrapliException):
 
 class InvalidArgumentException(ScrapliException):
     """Exception raised when libscrapli returns an invalid argument error"""
+
+
+class AuthenticationException(ScrapliException):
+    """Exception raised when libscrapli returns an error due to authentication failing"""
