@@ -3,11 +3,13 @@ import pytest
 from scrapli import (
     AuthOptions,
     Cli,
+    HostKeyHash,
     LookupKeyValue,
     Netconf,
     SessionOptions,
     TransportSsh2Options,
 )
+from scrapli.exceptions import FFIException
 
 PROXY_JUMP_ARGNAMES = (
     "platform",
@@ -138,3 +140,59 @@ def test_proxy_jump_netconf_ssh2(
 
     with netconf as n:
         netconf_assert_result(actual=n.get(filter_=filter_))
+
+
+HOST_KEY_DIGEST_LENS = {
+    HostKeyHash.MD5: 16,
+    HostKeyHash.SHA1: 20,
+    HostKeyHash.SHA256: 32,
+}
+
+
+@pytest.mark.parametrize(
+    argnames="hash_",
+    argvalues=tuple(HostKeyHash),
+    ids=tuple(h.value for h in HostKeyHash),
+)
+@pytest.mark.parametrize(
+    argnames=("platform", "transport"),
+    argvalues=(("netopeer", "ssh2"),),
+    ids=("netopeer-ssh2",),
+)
+def test_get_host_key_fingerprint_proxy_jump(hash_, netconf, is_darwin):
+    with netconf as n:
+        direct = n.get_host_key_fingerprint(hash_=hash_)
+
+    assert len(direct) == HOST_KEY_DIGEST_LENS[hash_]
+
+    proxied_netconf = Netconf(
+        host="localhost" if is_darwin else "172.20.20.19",
+        port=24022 if is_darwin else 22,
+        auth_options=AuthOptions(
+            # to the jumphost
+            username="scrapli-pw",
+            password="scrapli-123-pw",
+        ),
+        transport_options=TransportSsh2Options(
+            # always the clab address since this is resolved from the jump host
+            proxy_jump_host="172.20.20.18",
+            proxy_jump_port=830,
+            proxy_jump_username="root",
+            proxy_jump_password="password",
+        ),
+    )
+
+    with proxied_netconf as n:
+        # when proxy jumping we should get the target device, not the jump host
+        assert n.get_host_key_fingerprint(hash_=hash_) == direct
+
+
+@pytest.mark.parametrize(
+    argnames=("platform", "transport"),
+    argvalues=(("netopeer", "bin"),),
+    ids=("netopeer-bin",),
+)
+def test_get_host_key_fingerprint_not_ssh2(netconf):
+    with netconf as n:
+        with pytest.raises(FFIException):
+            n.get_host_key_fingerprint()

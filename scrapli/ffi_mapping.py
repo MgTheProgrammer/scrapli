@@ -314,6 +314,23 @@ class LibScrapliSessionMapping:
         ]
         lib.ls_session_operation_timeout_ns.restype = c_uint8
 
+        self._get_host_key_fingerprint: Callable[
+            [
+                DriverPointer,
+                c_uint8,
+                ZigSlicePointer,
+                USizePointer,
+            ],
+            int,
+        ] = lib.ls_session_get_host_key_fingerprint
+        lib.ls_session_get_host_key_fingerprint.argtypes = [
+            DriverPointer,
+            c_uint8,
+            ZigSlicePointer,
+            USizePointer,
+        ]
+        lib.ls_session_get_host_key_fingerprint.restype = c_uint8
+
     def read(
         self,
         ptr: DriverPointer,
@@ -446,6 +463,44 @@ class LibScrapliSessionMapping:
             self._set_operation_timeout_ns(ptr, set_operation_timeout_ns),
         ).raise_if_error(
             message="failed to set session operation timeout",
+        )
+
+    def get_host_key_fingerprint(
+        self,
+        *,
+        ptr: DriverPointer,
+        hash_: c_uint8,
+        buf: ZigSlicePointer,
+        digest_size: USizePointer,
+    ) -> None:
+        """
+        Get the raw host key digest of the connected device for the given hash.
+
+        Should (generally) not be called directly/by users.
+
+        Args:
+            ptr: ptr to the cli/netconf object
+            hash_: the hash algorithm of the digest
+            buf: buffer to fill with the digest, must be at least the digest size
+            digest_size: size pointer that is filled with number of bytes written into buf
+
+        Returns:
+            N/A
+
+        Raises:
+            FFIException: if getting the digest fails, including if it is not available
+
+        """
+        LibScrapliFFIResult(
+            self._get_host_key_fingerprint(
+                ptr,
+                hash_,
+                buf,
+                digest_size,
+            )
+        ).raise_if_error(
+            message="getting host key fingerprint failed, connection not opened or transport not "
+            "ssh2",
         )
 
 

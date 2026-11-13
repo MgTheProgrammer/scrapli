@@ -52,6 +52,7 @@ from scrapli.netconf_decorators import handle_operation_timeout, handle_operatio
 from scrapli.netconf_result import Result
 from scrapli.session import Options as SessionOptions
 from scrapli.transport import BinOptions as TransportBinOptions
+from scrapli.transport import HostKeyHash
 from scrapli.transport import Options as TransportOptions
 
 
@@ -1127,6 +1128,35 @@ class Netconf:
         )
 
         return capabilities_slice.contents.get_decoded_contents().split()
+
+    def get_host_key_fingerprint(self, hash_: HostKeyHash = HostKeyHash.SHA256) -> bytes:
+        """
+        Get the raw ssh host key digest (fingerprint) of the connected device.
+
+        Fetched from the session on demand, so only available for the ssh2 transport while open.
+
+        Args:
+            hash_: the hash algorithm of the digest
+
+        Returns:
+            bytes: the raw digest -- 16 bytes for md5, 20 for sha1, 32 for sha256
+
+        Raises:
+            NotOpenedException: if the ptr to the netconf object is None (via _ptr_or_exception)
+            FFIException: if the operation fails, including if not opened or transport not ssh2
+
+        """
+        buf = pointer(ZigSlice(size=c_size_t(32)))
+        digest_size = pointer(c_size_t())
+
+        self.ffi_mapping.session_mapping.get_host_key_fingerprint(
+            ptr=self._ptr_or_exception(),
+            hash_=hash_._to_ffi(),
+            buf=buf,
+            digest_size=digest_size,
+        )
+
+        return buf.contents.get_contents()[0 : digest_size.contents.value]
 
     def get_subscription_id(self, payload: str) -> int:
         """

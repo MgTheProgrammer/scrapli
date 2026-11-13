@@ -43,6 +43,37 @@ class TransportKind(str, Enum):
                 return c_uint8(0)
 
 
+class HostKeyHash(str, Enum):
+    """
+    Enum representing the hash algorithm used to fingerprint a host key
+
+    Args:
+        N/A
+
+    Returns:
+        None
+
+    Raises:
+        N/A
+
+    """
+
+    MD5 = "md5"
+    SHA1 = "sha1"
+    SHA256 = "sha256"
+
+    def _to_ffi(self) -> c_uint8:
+        match self:
+            case HostKeyHash.MD5:
+                return c_uint8(1)
+            case HostKeyHash.SHA1:
+                return c_uint8(2)
+            case HostKeyHash.SHA256:
+                return c_uint8(3)
+            case _:
+                return c_uint8(3)
+
+
 class Options(ABC):
     """
     Options is the base class for transport related option containers.

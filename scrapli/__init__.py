@@ -7,6 +7,7 @@ from scrapli.netconf import Netconf
 from scrapli.netconf import Options as NetconfOptions
 from scrapli.session import Options as SessionOptions
 from scrapli.transport import BinOptions as TransportBinOptions
+from scrapli.transport import HostKeyHash
 from scrapli.transport import Ssh2Options as TransportSsh2Options
 from scrapli.transport import TelnetOptions as TransportTelnetOptions
 from scrapli.transport import TestOptions as TransportTestOptions
@@ -21,6 +22,7 @@ __definitions_version__ = "0.0.6"
 __all__ = (
     "AuthOptions",
     "Cli",
+    "HostKeyHash",
     "LookupKeyValue",
     "Netconf",
     "NetconfOptions",
